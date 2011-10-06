@@ -23,6 +23,20 @@ module Spork
       return if prevent_double_run && already_ran?(caller.first)
       yield
     end
+
+    # Run a block BEFORE the fork occurs.  By default, if before_fork is called twice in the same file and line number, the supplied block will only be ran once.
+    #
+    # == Parameters
+    #
+    # * +prevent_double_run+ - Pass false to disable double run prevention
+    def before_fork(prevent_double_run = true, &block)
+      return if prevent_double_run && already_ran?(caller.first)
+      if state == :prefork
+        before_fork_procs << block
+      else
+        yield
+      end
+    end
     
     # Run a block AFTER the fork occurs.  By default, if prefork is called twice in the same file and line number, the supplied block will only be ran once.
     #
@@ -60,6 +74,14 @@ module Spork
     def exec_prefork(&block)
       @state = :prefork
       yield
+    end
+
+    # Used by the server.  Called to run all of the before_fork blocks.
+    def exec_before_fork(&block)
+      @state = :before_fork
+      before_fork_procs.each { |p| p.call }
+      before_fork_procs.clear
+      yield if block_given?
     end
     
     # Used by the server.  Called to run all of the prefork blocks.
@@ -146,6 +168,10 @@ module Spork
       
       def each_run_procs
         @each_run_procs ||= []
+      end
+
+      def before_fork_procs
+        @before_fork_procs ||= []
       end
 
       def after_each_run_procs

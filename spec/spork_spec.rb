@@ -5,6 +5,7 @@ Spork.class_eval do
     @state = nil
     @using_spork = false
     @already_ran = nil
+    @before_fork_procs = nil
     @each_run_procs = nil
   end
 end
@@ -18,6 +19,10 @@ describe Spork do
   def spec_helper_simulator
     Spork.prefork do
       @ran << :prefork
+    end
+
+    Spork.before_fork do
+      @ran << :before_fork
     end
     
     Spork.each_run do
@@ -35,27 +40,33 @@ describe Spork do
     Spork.exec_prefork { spec_helper_simulator }
     @ran.should == [:prefork]
     
+    Spork.exec_before_fork
+    @ran.should == [:prefork, :before_fork]
+
     Spork.exec_each_run
-    @ran.should == [:prefork, :each_run]
+    @ran.should == [:prefork, :before_fork, :each_run]
   end
   
   it "runs both blocks when Spork not activated" do
-    spec_helper_simulator.should == [:prefork, :each_run]
+    spec_helper_simulator.should == [:prefork, :before_fork, :each_run]
   end
   
   it "prevents blocks from being ran twice" do
     Spork.exec_prefork { spec_helper_simulator }
+    Spork.exec_before_fork
     Spork.exec_each_run
     @ran.clear
     Spork.exec_prefork { spec_helper_simulator }
+    Spork.exec_before_fork
     Spork.exec_each_run
     @ran.should == []
   end
   
-  it "runs multiple prefork and each_run blocks at different locations" do
+  it "runs multiple prefork, before_fork and each_run blocks at different locations" do
     Spork.prefork { }
+    Spork.before_fork { }
     Spork.each_run { }
-    spec_helper_simulator.should == [:prefork, :each_run]
+    spec_helper_simulator.should == [:prefork, :before_fork, :each_run]
   end
   
   it "expands a caller line, preserving the line number" do

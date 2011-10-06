@@ -6,6 +6,7 @@ class Spork::RunStrategy::Forking < Spork::RunStrategy
   def run(argv, stderr, stdout)
     abort if running?
 
+    Spork.exec_before_fork 
     @child = ::Spork::Forker.new do
       $stdout, $stderr = stdout, stderr
       load test_framework.helper_file
